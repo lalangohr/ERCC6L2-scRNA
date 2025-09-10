@@ -11,7 +11,7 @@ print(f'Scanpy version: {sc.__version__}')
 
 
 # Folder in which result is written. Make sure that dir exists.
-dir_results = 'results/'
+dir_results = './results'
 
 
 def main():
