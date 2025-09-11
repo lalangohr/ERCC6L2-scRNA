@@ -1,0 +1,23 @@
+sample,source,%viability,year,batch
+E1a,BM,35,2021,batch 3
+E1b,BM,65,2021,batch 4
+E1c,BM,56,2023,batch 6
+E2,BM,37,2021,batch 1
+E3,BM,25,2021,batch 2
+E4a,BM,60,2021,batch 3
+E4b,BM,55,2021,batch 3
+E4c,BM,63,2023,batch 5
+E5,BM,40,2021,batch 1
+E6,BM,39,2021,batch 1
+E8a,BM,47,2021,batch 4
+E8b,BM,59,2023,batch 6
+E8c,BM,62,2023,batch 6
+E7,BM,58,2023,batch 4
+E9,BM,56,2023,batch 4
+E10,BM,77,2021,batch 3
+SDS1,BM,83,2023,batch 3
+SDS2,BM,77,2023,batch 5
+SDS3,BM,73,2023,batch 2
+SDS4,BM,87,2023,batch 2
+SDS5a,BM,63,2023,batch 1
+SDS5b,BM,67,2023,batch 1
