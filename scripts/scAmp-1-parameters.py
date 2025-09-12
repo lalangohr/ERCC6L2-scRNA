@@ -1,8 +1,9 @@
 """
 Part 1 of TP53 mutation status identification from single-cell amplicon sequencing (scAmp-seq) data.
 
-Parse and specify input parameters and write them into a file for scAmp-seq data preprocessing.
+Parse and specify input parameters and write them into a file to be used in scAmp-seq data preprocessing.
 """
+
 
 import argparse
 import os
@@ -15,7 +16,7 @@ from time import gmtime, strftime
 
 # Directories
 
-dir_data = './data'
+dir_metadata = './metadata'
 dir_results = './results'
 
 
@@ -27,7 +28,7 @@ def parse_tp53_reference():
     """
     
     file_name_cds = 'TP53_CDS_NM_000546-5.fasta'
-    file_cds = os.path.join(dir_data, file_name_cds)
+    file_cds = os.path.join(dir_metadata, file_name_cds)
 
     f1=open(file_cds,'r')
     for line in f1:
@@ -44,7 +45,7 @@ def parse_primer_seq(tp53_ref, scAmp, read_len):
 
     # Get length of current primer
     file_name_primers = 'TP53_primers.csv'
-    file_primers = os.path.join(dir_data, file_name_primers)
+    file_primers = os.path.join(dir_metadata, file_name_primers)
     df_primers = pd.read_csv(file_primers)
     primer_infos = df_primers[(df_primers['primer name'] == scAmp)].values.tolist()
     primer_seq_used = primer_infos[0][2]
@@ -104,7 +105,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog = 'python scAmp-1-parameters.py',
         description = 'Part 1 of TP53 mutation status identification from scAmp-seq data: \
-            Parse and specify input parameters'
+                       Parse metadata and specify input parameters for TP53 mutation status identification'
     )
     parser.add_argument('-s', '--sample',  type=str, required=True, help='sample id')
     parser.add_argument('-v', '--variant', type=str, required=True, help='variant')
@@ -121,7 +122,7 @@ def main():
 
     # Parse TP53 variant,primer ID -pair informations
     file_name_mut_blocks = 'samples_variant_primer_ID.csv'
-    file_mut_blocks = os.path.join(dir_data, file_name_mut_blocks)
+    file_mut_blocks = os.path.join(dir_metadata, file_name_mut_blocks)
     df_tp53_variants = pd.read_csv(file_mut_blocks)
 
     # Get TP53 variant position infos of a specific variant and sample
@@ -134,7 +135,7 @@ def main():
 
         variant_in_file_name = variant.replace('.','').replace('>','')
         time_in_file_name = strftime('%Y%m%d-%H%M%S', gmtime())
-        file_name = 'scAmp-parameters-NovaSeq-' + primer_id + '-' + sample + '-' + variant_in_file_name + '-' + time_in_file_name + '.csv'
+        file_name = 'scAmp-parameters-' + primer_id + '-' + sample + '-' + variant_in_file_name + '-' + time_in_file_name + '.csv'
         file_out = os.path.join(dir_results, file_name)
 
         primer_seq_used, primer_len, tp53_ref_sub, primer_pos = parse_primer_seq(tp53_ref, primer_id, read_length)
@@ -145,7 +146,7 @@ def main():
 
         # Parse R1 file locations
         file_name_scAmp_paths = 'samples_primer_ID_scAmp-seq_R1_files.csv'
-        file_scAmp_paths = os.path.join(dir_data, file_name_scAmp_paths)
+        file_scAmp_paths = os.path.join(dir_metadata, file_name_scAmp_paths)
         df_files = pd.read_csv(file_scAmp_paths)
 
         # Specify R1 and R2 files
