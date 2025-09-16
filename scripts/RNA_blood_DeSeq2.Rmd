@@ -1,0 +1,185 @@
+---
+title: "DESeq2 blood"
+author: "S.Douglas"
+date: "2025-06-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("DESeq2")
+library("tidyverse")
+library("EnhancedVolcano")
+```
+
+```{r}
+# Specify count and sample info files
+file_counts_data_vol1 <- "Count_table.txt"
+file_counts_data_vol2 <- "Count_table2.txt"
+file_sample_info <- "blood_sample_info.txt"
+```
+
+```{r}
+# Create directory for results and set working directory
+dir_results <- './results/RNA_fibroblasts_DeSeq2'
+dir.create(dir_results)
+#setwd(dir_results)
+```
+
+```{r}
+# Pase counts and sample info
+
+# Parse counts
+counts_data_vol1 <- read.table(file=file_counts_data_vol1, header=T, sep="\t", row.names=1)
+counts_data_vol2 <- read.table(file=file_counts_data_vol2, header=T, sep="\t", row.names=1)
+total_counts <- merge(counts_data_vol1, counts_data_vol2, by = 'row.names', all = TRUE)
+total_counts[is.na(total_counts)] <- 0 
+rownames(total_counts) <- total_counts$Row.names
+total_counts <- total_counts[,-1]
+
+# Parse sample info
+blood_sample_info <- read.delim(file=file_sample_info)
+blood_samples <- blood_sample_info$Counts_names
+
+blood_counts <- total_counts[(names(total_counts) %in% blood_samples)]
+
+blood_sample_info$Condition <- as.factor(blood_sample_info$Condition)
+blood_sample_info$sex <- as.factor(blood_sample_info$sex)
+blood_sample_info$TP53 <- as.factor(blood_sample_info$TP53)
+```
+
+```{r}
+# Set alpha
+alpha <- 0.05
+```
+
+```{r}
+# Select samples
+sample_info <- blood_sample_info
+samples <- sample_info$Counts_names
+
+# Select counts
+counts <- total_counts[(names(total_counts) %in% samples)]
+
+# Reorder
+order <- colnames(counts)
+colnames(counts) == sample_info$Counts_names
+sample_info <- sample_info[match(order, sample_info$Counts_names),]
+colnames(counts) == sample_info$Counts_names
+row.names(sample_info) <- sample_info$Counts_names
+```
+
+```{r}
+# Run DESeq2
+
+# Set design
+dds1 <- DESeqDataSetFromMatrix(countData=counts, colData=sample_info, design = ~ TP53 + sex + Condition)
+
+# Filter low count genes
+keep <- rowSums(counts(dds1)) > 10
+dds1 <- dds1[keep,]
+
+# Run DESeq2
+dds <- DESeq(dds1)
+dds_results <- results(dds)
+
+# Check result names
+resultsNames(dds)
+```
+
+```{r}
+# Save results
+
+# Save results for ERCC6L2 disease (ED)
+results_EvsC <- results(dds, contrast = c("Condition", "Erkki", "Control"), alpha=alpha)
+
+sig_EvsC <- cbind(counts(dds), results_EvsC)
+sig_EvsC <- as.data.frame(sig_EvsC)
+sig_EvsC <- sig_EvsC[! (is.na(sig_EvsC$padj)), ]
+sig_EvsC <- sig_EvsC[ order(sig_EvsC$padj), ]
+
+write.table(sig_EvsC, file=file.path(dir_results, 'EvsC_with_counts.tsv'), sep="\t", row.names=T, quote=F)
+
+# Save results for SDS
+results_SvsC <- results(dds, contrast = c("Condition", "SDS", "Control"), alpha = alpha)
+
+sig_SvsC <- cbind(counts(dds), results_SvsC)
+sig_SvsC <- as.data.frame(sig_SvsC)
+sig_SvsC <- sig_SvsC[! (is.na(sig_SvsC$padj)), ]
+sig_SvsC <- sig_SvsC[ order(sig_SvsC$padj), ]
+
+write.table(sig_SvsC, file=file.path(dir_results, 'SvsC_with_counts.tsv'), sep="\t", row.names=T, quote=F)
+
+# Save results for ED vs SDS
+results_EvsS <- results(dds, contrast = c("Condition", "Erkki", "SDS"), alpha = alpha)
+
+sig_EvsS <- cbind(counts(dds), results_EvsS)
+sig_EvsS <- as.data.frame(sig_EvsS)
+sig_EvsS <- sig_EvsS[! (is.na(sig_EvsS$padj)), ]
+sig_EvsS <- sig_EvsS[ order(sig_EvsS$padj), ]
+
+write.table(sig_EvsS, file=file.path(dir_results, 'EvsS_with_counts.tsv'), sep="\t", row.names=T, quote=F)
+```
+
+```{r}
+# Save summary
+sink(file.path(dir_results, 'summary_EvsC.txt'))
+summary(results_EvsC)
+sink()
+
+sink(file.path(dir_results, 'summary_ScsC.txt'))
+summary(results_SvsC)
+sink()
+
+sink(file.path(dir_results, 'summary_EvsS.txt'))
+summary(results_EvsS)
+sink()
+```
+
+```{r}
+# Make volcano plots
+
+# Volcano plots for ERCC6L2 disease (ED)
+res <- lfcShrink(dds, contrast = list("Condition_Erkki_vs_Control", "Condition_SDS_vs_Control"), res=results_EvsC, type = 'ashr')
+
+png(file.path(dir_results, 'volcano_EvsC_FCcutoff.png'))
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'EvsC, blood', FCcutoff = 0.25)
+dev.off()
+
+pdf(file.path(dir_results, 'volcano_EvsC_FCcutoff.pdf'), width = 7, height = 7)
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'EvsC, blood', FCcutoff = 0.25)
+dev.off()
+
+
+# Volcano plots for SDS
+res <- lfcShrink(dds, contrast = c("Condition", "SDS", "Control"), res=results_SvsC, type = 'ashr')
+
+png(file.path(dir_results, 'volcano_SvsC_FCcutoff.png'))
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'SvsC, blood', FCcutoff = 0.25)
+dev.off()
+
+pdf(file.path(dir_results, 'volcano_SvsC_FCcutoff.pdf'), width = 7, height = 7)
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'SvsC, blood', FCcutoff = 0.25)
+dev.off()
+
+
+# Volcano plots for ED vs SDS
+res <- lfcShrink(dds, contrast = c("Condition", "Erkki", "SDS"), res=results_EvsS, type = 'ashr')
+
+png(file.path(dir_results, 'volcano_EvsS_FCcutoff.png'))
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'EvsS, blood', FCcutoff = 0.25)
+dev.off()
+
+pdf(file.path(dir_results, 'volcano_EvsS_FCcutoff.pdf'), width = 7, height = 7)
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'EvsS, blood', FCcutoff = 0.25)
+dev.off()
+```
+
+```{r}
+# Save normalized counts
+normalized_counts_blood <- counts(dds, normalized=TRUE)
+write.table(normalized_counts_blood, file=file.path(dir_results, 'blood_normalized_counts.tsv'), sep="\t", row.names=T, quote=F)
+```

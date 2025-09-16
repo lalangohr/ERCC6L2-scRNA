@@ -1,0 +1,183 @@
+---
+title: "DESeq2 fibroblasts"
+author: "S.Douglas"
+date: "2025-07-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("DESeq2")
+library("tidyverse")
+library("EnhancedVolcano")
+```
+
+```{r}
+# Specify count and sample info files
+file_counts_data_vol1 <- "Count_table.txt"
+file_counts_data_vol2 <- "Count_table2.txt"
+file_sample_info <- "fibr_sample_info.txt"
+```
+
+```{r}
+# Create directory for results and set working directory
+dir_results <- './results/RNA_fibroblasts_DeSeq2'
+dir.create(dir_results)
+#setwd(dir_results)
+```
+
+```{r}
+# Parse counts and sample info
+
+# Parse counts
+counts_data_vol1 <- read.table(file=file_counts_data_vol1, header=T, sep="\t", row.names=1)
+counts_data_vol2 <- read.table(file=file_counts_data_vol2, header=T, sep="\t", row.names=1)
+total_counts <- merge(counts_data_vol1, counts_data_vol2, by = 'row.names', all = TRUE)
+total_counts[is.na(total_counts)] <- 0 
+rownames(total_counts) <- total_counts$Row.names
+total_counts <- total_counts[,-1]
+
+# Parse sample info
+fibr_sample_info <- read.delim(file=file_sample_info)
+fibr_samples <- fibr_sample_info$Counts_names
+
+fibr_counts <- total_counts[(names(total_counts) %in% fibr_samples)]
+
+fibr_sample_info$Condition <- as.factor(fibr_sample_info$Condition)
+fibr_sample_info$Sex <- as.factor(fibr_sample_info$Sex)
+fibr_sample_info$Timepoint <- as.factor(fibr_sample_info$Timepoint)
+fibr_sample_info$Media <- as.factor(fibr_sample_info$Media)
+fibr_sample_info$eristysajankohta <- as.factor(fibr_sample_info$eristysajankohta) # isolation date
+fibr_sample_info$RIN <- gsub(',','.',fibr_sample_info$RIN)
+fibr_sample_info$RIN <- as.numeric(fibr_sample_info$RIN)
+```
+
+```{r}
+# Set alpha
+alpha <- 0.05
+```
+
+```{r}
+# Select samples
+sample_info_fibr <- fibr_sample_info[(fibr_sample_info$RIN>=5),]
+samples_fibr <- sample_info_fibr$Counts_names
+
+# Select counts
+counts_fibr <- total_counts[(names(total_counts) %in% samples_fibr)]
+
+# Reorder
+colnames(counts_fibr) == sample_info_fibr$Counts_names
+```
+
+```{r}
+# Run DESeq2
+
+# Set design
+dds_fibr <- DESeqDataSetFromMatrix(countData=counts_fibr, colData=sample_info_fibr, design = ~ eristysajankohta + Timepoint + Media + Sex + Condition)
+
+# Filter low count genes
+keep_fibr <- rowSums(counts(dds_fibr)) > 10
+dds_fibr <- dds_fibr[keep_fibr,]
+
+# Run DESeq2
+dds_fibr <- DESeq(dds_fibr)
+dds_results_fibr <- results(dds_fibr)
+
+# Check result names
+resultsNames(dds_fibr)
+```
+
+```{r}
+# Save results
+
+# Save results for ERCC6L2 disease (ED)
+results_EvsC_fibr <- results(dds_fibr, contrast = c("Condition", "Erkki", "Control"), alpha = alpha)
+
+sig_EvsC_fibr <- cbind(counts(dds_fibr), results_EvsC_fibr)
+sig_EvsC_fibr <- as.data.frame(sig_EvsC_fibr)
+sig_EvsC_fibr <- sig_EvsC_fibr[! (is.na(sig_EvsC_fibr$padj)), ]
+sig_EvsC_fibr <- sig_EvsC_fibr[ order(sig_EvsC_fibr$padj), ]
+
+write.table(sig_EvsC_fibr, file=file.path(dir_results, 'EvsC_with_counts.tsv'), sep="\t", row.names=T, quote=F)
+
+# Save results for SDS
+results_SvsC_fibr <- results(dds_fibr, contrast = c("Condition", "SDS", "Control"), alpha = alpha)
+
+sig_SvsC_fibr <- cbind(counts(dds_fibr), results_SvsC_fibr)
+sig_SvsC_fibr <- as.data.frame(sig_SvsC_fibr)
+sig_SvsC_fibr <- sig_SvsC_fibr[! (is.na(sig_SvsC_fibr$padj)), ]
+sig_SvsC_fibr <- sig_SvsC_fibr[ order(sig_SvsC_fibr$padj), ]
+
+write.table(sig_SvsC_fibr, file=file.path(dir_results, 'SvsC_with_counts.tsv'), sep="\t", row.names=T, quote=F)
+
+# Save results for ED vs SDS
+results_EvsS_fibr <- results(dds_fibr, contrast = c("Condition", "Erkki", "SDS"), alpha = alpha)
+
+sig_EvsS_fibr <- cbind(counts(dds_fibr), results_EvsS_fibr)
+sig_EvsS_fibr <- as.data.frame(sig_EvsS_fibr)
+sig_EvsS_fibr <- sig_EvsS_fibr[! (is.na(sig_EvsS_fibr$padj)), ]
+sig_EvsS_fibr <- sig_EvsS_fibr[ order(sig_EvsS_fibr$padj), ]
+
+write.table(sig_EvsS_fibr, file=file.path(dir_results, 'EvsS_with_counts.tsv'), sep="\t", row.names=T, quote=F)
+```
+
+```{r}
+# Save summary
+sink(file.path(dir_results, 'summary_EvsC.txt'))
+summary(results_EvsC_fibr)
+sink()
+
+sink(file.path(dir_results, 'summary_SvsC.txt'))
+summary(results_SvsC_fibr)
+sink()
+
+sink(file.path(dir_results, 'summary_EvsS.txt'))
+summary(results_EvsS_fibr)
+sink()
+```
+
+```{r}
+# Make volcano plots
+
+# Volcano plots for ERCC6L2 disease (ED)
+res <- lfcShrink(dds_fibr, contrast = c("Condition", "Erkki", "Control"), res=results_EvsC_fibr, type = 'ashr')
+
+png(file.path(dir_results, 'volcano_EvsC_FCcutoff.png'))
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'EvsC, fibroblasts', FCcutoff = 0.25)
+dev.off()
+
+pdf(file.path(dir_results, 'volcano_EvsC_FCcutoff.pdf', width = 7, height = 7))
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'EvsC, fibroblasts', FCcutoff = 0.25)
+dev.off()
+
+# Volcano plots for SDS
+res <- lfcShrink(dds_fibr, contrast = c("Condition", "SDS", "Control"), res=results_SvsC_fibr, type = 'ashr')
+
+png(file.path(dir_results, 'volcano_SvsC_FCcutoff.png'))
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'SvsC, fibroblasts', FCcutoff = 0.25)
+dev.off()
+
+pdf(file.path(dir_results, 'volcano_SvsC_FCcutoff.pdf'), width = 7, height = 7)
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'SvsC, firboblasts', FCcutoff = 0.25)
+dev.off()
+
+# Volcano plots for ED vs SDS
+res <- lfcShrink(dds_fibr, contrast = c("Condition", "Erkki", "SDS"), res=results_EvsS_fibr, type = 'ashr')
+
+png(file.path(dir_results, 'volcano_EvsS_FCcutoff.png'))
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'EvsS, fibroblasts', FCcutoff = 0.25)
+dev.off()
+
+pdf(file.path(dir_results, 'volcano_EvsS_FCcutoff.pdf'), width = 7, height = 7)
+EnhancedVolcano(res, lab = rownames(res), x = 'log2FoldChange', y = 'pvalue', title = 'EvsS, fibroblasts', FCcutoff = 0.25)
+dev.off()
+```
+
+```{r}
+# Save normalized counts
+normalized_counts_fibr <- counts(dds_fibr, normalized=TRUE)
+write.table(normalized_counts_fibr, file=file.path(dir_results, 'fibroblasts_normalized_counts.tsv'), sep="\t", row.names=T, quote=F)
+```

@@ -1,0 +1,90 @@
+---
+title: "enrichR blood and fibroblasts"
+author: "S.Douglas"
+date: "2024-12-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(devtools)
+library(enrichR)
+```
+
+```{r}
+# Create directory for results and set working directory
+dir_results <- './results/RNA_blood_DeSeq2'
+#dir_results <- './results/RNA_fibroblasts_DeSeq2'
+dir.create(dir_results)
+#setwd(dir_results)
+```
+
+```{r}
+listEnrichrSites()
+setEnrichrSite("Enrichr")
+```
+
+```{r}
+# Specify databases to use
+dbs <- c("Reactome_Pathways_2024")
+```
+
+```{r}
+# Parse DESeq2 results
+EvsC_genes <- read.delim(file=file.path(dir_results, "EvsC_with_counts.tsv"))
+SvsC_genes <- read.delim(file=file.path(dir_results, "SvsC_with_counts.tsv"))
+EvsS_genes <- read.delim(file=file.path(dir_results, "EvsS_with_counts.tsv"))
+```
+
+```{r} 
+# Select DEGs for EvsC
+EvsC_genes <- EvsC_genes[abs(EvsC_genes$log2FoldChange) >= 0.25,]
+EvsC_genes <- EvsC_genes[EvsC_genes$padj <= 0.05,]
+EvsC_genes <- rownames(EvsC_genes)
+length(EvsC_genes)
+head(EvsC_genes)
+```
+
+```{r}
+# Select DEGs for SvsC
+SvsC_genes <- SvsC_genes[abs(SvsC_genes$log2FoldChange) >= 0.25,]
+SvsC_genes <- SvsC_genes[SvsC_genes$padj <= 0.05,]
+SvsC_genes <- rownames(SvsC_genes)
+length(SvsC_genes)
+head(SvsC_genes)
+```
+
+```{r}
+# Select DEGs for EvsS
+EvsS_genes <- EvsS_genes[abs(EvsS_genes$log2FoldChange) >= 0.25,]
+EvsS_genes <- EvsS_genes[EvsS_genes$padj <= 0.05,]
+EvsS_genes <- rownames(EvsS_genes)
+length(EvsS_genes)
+head(EvsS_genes)
+```
+
+```{r}
+# Run enrichR
+enriched_EvsC <- enrichr(EvsC_genes, dbs)
+enriched_SvsC <- enrichr(SvsC_genes, dbs)
+enriched_EvsS <- enrichr(EvsS_genes, dbs)
+```
+
+```{r}
+# Check result
+head(enriched_EvsC[["Reactome_Pathways_2024"]])
+```
+
+```{r}
+# Save results
+setwd(dir_results)
+printEnrich(enriched_EvsC, prefix = "enrichR_EvsC", outFile = "txt")
+printEnrich(enriched_EvsC, prefix = "enrichR_EvsC", outFile = "excel")
+printEnrich(enriched_SvsC, prefix = "enrichR_SvsC", outFile = "txt")
+printEnrich(enriched_SvsC, prefix = "enrichR_SvsC", outFile = "excel")
+printEnrich(enriched_EvsS, prefix = "enrichR_EvsS", outFile = "txt")
+printEnrich(enriched_EvsS, prefix = "enrichR_EvsS", outFile = "excel")
+```
