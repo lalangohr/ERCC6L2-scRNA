@@ -210,7 +210,7 @@ def main():
 
     adata_list_dx = ['BM normal', 'BM normal', 'BM normal',                         # ERCC6L2 disease
                      'BMF', 'BMF', 'BMF', 'BMF', 'BMF', 'BMF', 'BMF', 'BMF', 'BMF', # ERCC6L2 disease
-                     'MDS', 'MDS', 'MDS', 'MDS',                                    # ERCC6L2 disease
+                     'MDS', 'MDS', 'MDS', 'MDS/AML',                                # ERCC6L2 disease
                      'BMF', 'BMF', 'BMF', 'BMF', 'MDS', 'MDS', # SDS
                      'AML', 'AML', 'AML', 'AML', 'AML', 'AML', 'AML', 'AML', 'AML', 'AML', # AML
                      'AML', 'AML', 'AML', 'AML', 'AML', 'AML', 'AML', 'AML', 'AML', 'AML', # AML
